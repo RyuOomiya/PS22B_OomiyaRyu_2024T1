@@ -44,6 +44,7 @@ public:
 class Bricks {
 public:
 	Rect bricks[constants::brick::MAX];
+	int refbricksCount = 0;
 
 	Bricks() {
 		using namespace constants::brick;
@@ -57,6 +58,7 @@ public:
 				};
 			}
 		}
+		refbricksCount = 0;
 	}
 
 	void Draw() {
@@ -79,10 +81,12 @@ public:
 				if (refBrick.bottom().intersects(ball.ball) || refBrick.top().intersects(ball.ball))
 				{
 					ball.velocity.y *= -1;
+					refbricksCount++;
 				}
 				else // ブロックの左辺または右辺と交差
 				{
 					ball.velocity.x *= -1;
+					refbricksCount++;
 				}
 
 				// あたったブロックは画面外に出す
@@ -158,12 +162,17 @@ public:
 		}
 	}
 
-	void Intersects(Ball& ball)
+	void EndChecker(Ball& ball, Bricks& bricks)
 	{
 		//ボールの落下を検知
 		if ((Scene::Height() < ball.ball.y) && (0 < ball.velocity.y))
 		{
-			//ゲーム終了後の初期化
+			gameStart = false;
+		}
+
+		//ブロック全破壊を検知
+		if (100 <= bricks.refbricksCount)
+		{
 			gameStart = false;
 		}
 	}
@@ -193,11 +202,13 @@ void Main()
 			bricks.Intersects(ball);
 			paddle.Intersects(ball);
 			Wall::Intersects(ball);
-			manager.Intersects(ball);
+			manager.EndChecker(ball, bricks);
 		}
 		if (manager.gameStart == false)
 		{
-			ball.velocity = {0, -constants::ball::SPEED };
+			ball = Ball();
+			bricks = Bricks();
+			paddle = Paddle();
 		}
 	}
 }
