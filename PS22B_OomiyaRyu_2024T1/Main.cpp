@@ -1,10 +1,5 @@
 ﻿# include <Siv3D.hpp>
 
-/*
-	古き良き書き方での実装
-	・安全性や利便性などは一切考えていない
-*/
-
 namespace constants {
 	namespace brick {
 		/// @brief ブロックのサイズ
@@ -33,7 +28,8 @@ public:
 	Vec2 velocity;
 	Circle ball;
 
-	void Draw() {
+	void Draw()
+	{
 		ball.draw();
 	}
 
@@ -42,7 +38,7 @@ public:
 		ball.moveBy(velocity * Scene::DeltaTime());
 	}
 
-	Ball() : velocity(0, constants::ball::SPEED), ball(400, 400, 8) {}
+	Ball() : velocity(0, -constants::ball::SPEED), ball(400, 400, 8) {}
 };
 
 class Bricks {
@@ -63,16 +59,16 @@ public:
 		}
 	}
 
-	 void Draw() {
-		 for (int i = 0; i < constants::brick::MAX; ++i) {
-			 bricks[i].stretched(-1).draw(HSV{ bricks[i].y - 40 });
-		 }
+	void Draw() {
+		for (int i = 0; i < constants::brick::MAX; ++i) {
+			bricks[i].stretched(-1).draw(HSV{ bricks[i].y - 40 });
+		}
 	}
 
-	 void Intersects(Ball& ball) {
-		 using namespace constants::brick;
+	void Intersects(Ball& ball) {
+		using namespace constants::brick;
 
-		 for (int i = 0; i < MAX; ++i) {
+		for (int i = 0; i < MAX; ++i) {
 			// 参照で保持
 			Rect& refBrick = bricks[i];
 
@@ -96,92 +92,112 @@ public:
 				break;
 			}
 		}
-	 }
+	}
 };
 
 class Paddle {
 public:
 	Rect paddle;
 
-	Paddle() : paddle(Arg::center(Cursor::Pos().x, 500), 60, 10){}
+	Paddle() : paddle(Arg::center(Cursor::Pos().x, 500), 60, 10) {}
 
 	void Draw()
 	{
 		paddle.rounded(3).draw();
 	}
+
+
 	void Update()
 	{
 		paddle.x = Cursor::Pos().x - (constants::paddle::SIZE.x / 2);
+	}
+
+	void Intersects(Ball& ball) {
+		if ((0 < ball.velocity.y) && paddle.intersects(ball.ball))
+		{
+			ball.velocity = Vec2{
+				(ball.ball.x - paddle.center().x) * 10,
+				-ball.velocity.y
+			}.setLength(constants::ball::SPEED);
+		}
+	}
+};
+
+struct Wall {
+	/// @brief 衝突検知
+	static void Intersects(Ball& ball) {
+		// 天井との衝突を検知
+		if ((ball.ball.y < 0) && (ball.velocity.y < 0))
+		{
+			ball.velocity.y *= -1;
+		}
+
+		// 壁との衝突を検知
+		if (((ball.ball.x < 0) && (ball.velocity.x < 0))
+			|| ((Scene::Width() < ball.ball.x) && (0 < ball.velocity.x)))
+		{
+			ball.velocity.x *= -1;
+		}
+	}
+};
+
+class Manager {
+public:
+	bool gameStart = false;
+	Font font{ FontMethod::MSDF, 48 };
+
+	void Update()
+	{
+		if (!gameStart)
+		{
+			font(U"スペースキーを押してスタート").drawAt(Scene::Center(), Palette::White);
+			if (KeySpace.pressed())
+			{
+				gameStart = true;
+			}
+		}
+	}
+
+	void Intersects(Ball& ball)
+	{
+		//ボールの落下を検知
+		if ((Scene::Height() < ball.ball.y) && (0 < ball.velocity.y))
+		{
+			//ゲーム終了後の初期化
+			gameStart = false;
+		}
 	}
 };
 
 void Main()
 {
+	Manager manager;
 	Ball ball;
 	Bricks bricks;
 	Paddle paddle;
-#pragma endregion
 
+#pragma endregion
 	while (System::Update())
 	{
-		ball.Update();
-		paddle.Update();
+		manager.Update();
 
-		ball.Draw();
-		bricks.Draw();
-		paddle.Draw();
+		if (manager.gameStart)
+		{
+			ball.Update();
+			paddle.Update();
 
-		bricks.Intersects(ball);
-		
-		////==============================
-		//// コリジョン
-		////==============================
-		//// ブロックとの衝突を検知
-		//for (int i = 0; i < MAX; ++i) {
-		//	// 参照で保持
-		//	Rect& refBrick = bricks[i];
+			ball.Draw();
+			bricks.Draw();
+			paddle.Draw();
 
-		//	// 衝突を検知
-		//	if (refBrick.intersects(ball))
-		//	{
-		//		// ブロックの上辺、または底辺と交差
-		//		if (refBrick.bottom().intersects(ball) || refBrick.top().intersects(ball))
-		//		{
-		//			ballVelocity.y *= -1;
-		//		}
-		//		else // ブロックの左辺または右辺と交差
-		//		{
-		//			ballVelocity.x *= -1;
-		//		}
-
-		//		// あたったブロックは画面外に出す
-		//		refBrick.y -= 600;
-
-		//		// 同一フレームでは複数のブロック衝突を検知しない
-		//		break;
-		//	}
-		//}
-
-		//// 天井との衝突を検知
-		//if ((ball.y < 0) && (ballVelocity.y < 0))
-		//{
-		//	ballVelocity.y *= -1;
-		//}
-
-		//// 壁との衝突を検知
-		//if (((ball.x < 0) && (ballVelocity.x < 0))
-		//	|| ((Scene::Width() < ball.x) && (0 < ballVelocity.x)))
-		//{
-		//	ballVelocity.x *= -1;
-		//}
-
-		//// パドルとの衝突を検知
-		//if ((0 < ballVelocity.y) && paddle.intersects(ball))
-		//{
-		//	ballVelocity = Vec2{
-		//		(ball.x - paddle.center().x) * 10,
-		//		-ballVelocity.y
-		//	}.setLength(BALL_SPEED);
-		//}
+			bricks.Intersects(ball);
+			paddle.Intersects(ball);
+			Wall::Intersects(ball);
+			manager.Intersects(ball);
+		}
+		if (manager.gameStart == false)
+		{
+			ball.velocity = {0, -constants::ball::SPEED };
+		}
 	}
 }
